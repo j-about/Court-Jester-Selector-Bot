@@ -1,0 +1,7 @@
+---
+- name: Court Jester Selector Bot Deployment
+  hosts: server
+  become: true
+
+  roles:
+    - role: cjsb_deployment
