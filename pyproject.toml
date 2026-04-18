@@ -1,6 +1,6 @@
 [project]
 name = "court-jester-selector-bot"
-version = "0.1.0"
+version = "0.1.1"
 description = "🃏 A fun Telegram bot that crowns a random friend as the day's entertainer based on weighted randomization. All hail the royal jester! 🎪"
 authors = [
     { name = "j-about", email = "142051449+j-about@users.noreply.github.com" },
