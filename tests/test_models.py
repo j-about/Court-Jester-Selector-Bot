@@ -35,9 +35,17 @@ def test_player_default_weight() -> None:
     assert p.weight == 3
 
 
-def test_draw_default_date_is_today() -> None:
+def test_draw_requires_explicit_date() -> None:
+    """``Draw`` has no default for ``draw_date`` — the caller supplies it.
+
+    Removing ``default_factory`` routes every insert through the
+    timezone-aware helper in ``utils.time.current_draw_date`` rather than a
+    silent ``date.today()`` at model construction. A missing ``draw_date``
+    therefore leaves the attribute as ``None`` on the Python side (and
+    would violate the ``NOT NULL`` constraint on flush).
+    """
     d = Draw(group_id=1, player_id=1)
-    assert d.draw_date == date.today()
+    assert d.draw_date is None
 
 
 def test_relationship_descriptors_exist() -> None:

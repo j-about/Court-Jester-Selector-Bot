@@ -24,6 +24,7 @@ from observability import log_draw_execution
 from utils.gates import check_approval_gate, check_min_players_gate
 from utils.messages import safe_format
 from utils.players import player_display_name
+from utils.time import current_draw_date
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ async def on_crown_the_jester(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     settings: Settings = context.application.bot_data["settings"]
-    today = date.today()
+    today = current_draw_date(settings)
 
     try:
         async with get_session() as session:
@@ -98,7 +99,7 @@ async def on_crown_the_jester(update: Update, context: ContextTypes.DEFAULT_TYPE
                 logger.error("crown_the_jester missing winner", extra={"chat_id": chat.id})
                 return
 
-            log_draw_execution(chat.id, winner.telegram_id, today)
+            log_draw_execution(chat.id, winner.telegram_id, today, settings.DRAW_TIMEZONE)
             await message.reply_text(
                 safe_format(
                     settings.PICK_PLAYER_PICKED_PLAYER_MESSAGE,

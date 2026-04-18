@@ -135,7 +135,12 @@ def test_log_weight_change(caplog: pytest.LogCaptureFixture) -> None:
 
 def test_log_draw_execution(caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level(logging.INFO, logger="cjsb"):
-        observability.log_draw_execution(group_id=100, player_id=200, draw_date=date(2026, 4, 15))
+        observability.log_draw_execution(
+            group_id=100,
+            player_id=200,
+            draw_date=date(2026, 4, 15),
+            draw_timezone="Europe/Paris",
+        )
 
     rec = caplog.records[-1]
     assert rec.message == "draw.execution"
@@ -143,6 +148,9 @@ def test_log_draw_execution(caplog: pytest.LogCaptureFixture) -> None:
     assert rec.player_telegram_id == 200
     assert rec.admin_telegram_id is None
     assert rec.draw_date == "2026-04-15"
+    assert rec.draw_timezone == "Europe/Paris"
+    assert isinstance(rec.decided_at, str)
+    assert rec.decided_at.endswith("+00:00")
 
 
 def test_log_bot_membership_change(caplog: pytest.LogCaptureFixture) -> None:

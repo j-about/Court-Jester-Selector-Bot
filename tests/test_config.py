@@ -28,6 +28,20 @@ def test_loads_with_required_env(monkeypatch: pytest.MonkeyPatch) -> None:
     assert s.TG_BOT_ADMIN_RIGHTS_CHAT_MEMBER_STATUS == ["creator", "administrator"]
     assert s.TG_BOT_ADMIN_RIGHTS_USER_IDS == []
     assert s.DEFAULT_WEIGHT == 3
+    assert s.DRAW_TIMEZONE == "UTC"
+
+
+def test_draw_timezone_accepts_iana_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    for k, v in _BASE_ENV.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.setenv("DRAW_TIMEZONE", "Europe/Paris")
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.DRAW_TIMEZONE == "Europe/Paris"
+
+
+def test_draw_timezone_rejects_invalid_name() -> None:
+    with pytest.raises(ValidationError):
+        _settings(DRAW_TIMEZONE="Mars/Phobos")
 
 
 def test_csv_list_parsing(monkeypatch: pytest.MonkeyPatch) -> None:

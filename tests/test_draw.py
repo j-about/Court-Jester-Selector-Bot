@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import os
 import random
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -18,6 +20,7 @@ from handlers.draw import (
 )
 from models import Draw, Group, Player
 from tests.conftest import requires_db
+from utils import time as utils_time
 
 
 def _test_settings(min_players: int | None = None) -> Settings:
@@ -303,3 +306,72 @@ async def test_preexisting_draw_is_returned_not_overwritten(
 
     draws = (await session.execute(select(Draw).where(Draw.group_id == group.id))).scalars().all()
     assert len(draws) == 1
+
+
+class _FrozenDatetime:
+    """Substitute for ``datetime`` whose ``.now(tz)`` returns a fixed instant."""
+
+    def __init__(self, fixed_utc: datetime) -> None:
+        assert fixed_utc.tzinfo is not None
+        self._fixed_utc = fixed_utc
+
+    def now(self, tz: ZoneInfo | None = None) -> datetime:
+        if tz is None:
+            return self._fixed_utc
+        return self._fixed_utc.astimezone(tz)
+
+
+@requires_db
+async def test_paris_midnight_boundary_creates_two_draws(
+    patched_db: async_sessionmaker[AsyncSession],
+    session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two calls straddling Paris midnight must yield two distinct ``draw_date``s.
+
+    Verifies the scenario motivating the ``DRAW_TIMEZONE`` setting: when
+    the deployer sets Europe/Paris, a draw at 23:59 Paris and one at 00:00
+    Paris are on different civil days even though they sit inside the
+    same UTC hour.
+    """
+    os.environ.setdefault("TG_BOT_TOKEN", "test-token")
+    os.environ.setdefault("POSTGRES_USER", "u")
+    os.environ.setdefault("POSTGRES_PASSWORD", "p")
+    os.environ.setdefault("POSTGRES_DB", "db")
+    os.environ["MIN_PLAYERS"] = "2"
+    settings = Settings(_env_file=None, DRAW_TIMEZONE="Europe/Paris")  # type: ignore[call-arg]
+
+    group = Group(status="member", telegram_id=9700, telegram_title="G", approved=True)
+    session.add(group)
+    await session.commit()
+    assert group.id is not None
+    session.add(_make_player(group_id=group.id, telegram_id=11001, username="a", weight=3))
+    session.add(_make_player(group_id=group.id, telegram_id=11002, username="b", weight=3))
+    await session.commit()
+
+    ctx = _fake_context(settings=settings)
+
+    # 21:59:00 UTC == 23:59:00 Paris (DST, UTC+2) -> civil date 2026-04-18.
+    monkeypatch.setattr(
+        utils_time,
+        "datetime",
+        _FrozenDatetime(datetime(2026, 4, 18, 21, 59, 0, tzinfo=ZoneInfo("UTC"))),
+    )
+    update1, _reply1 = _fake_command_update(chat_id=9700)
+    await on_crown_the_jester(update1, ctx)
+
+    # 22:00:30 UTC == 00:00:30 Paris the next day -> civil date 2026-04-19.
+    monkeypatch.setattr(
+        utils_time,
+        "datetime",
+        _FrozenDatetime(datetime(2026, 4, 18, 22, 0, 30, tzinfo=ZoneInfo("UTC"))),
+    )
+    update2, _reply2 = _fake_command_update(chat_id=9700)
+    await on_crown_the_jester(update2, ctx)
+
+    draws = (
+        await session.execute(
+            select(Draw).where(Draw.group_id == group.id).order_by(Draw.draw_date)
+        )
+    ).scalars().all()
+    assert [d.draw_date.isoformat() for d in draws] == ["2026-04-18", "2026-04-19"]

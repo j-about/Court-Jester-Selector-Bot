@@ -91,7 +91,7 @@ class Draw(SQLModel, table=True):
     )
 
     id: int | None = Field(default=None, primary_key=True)
-    draw_date: date = Field(default_factory=date.today)
+    draw_date: date
     group_id: int = Field(foreign_key="group.id")
     player_id: int = Field(foreign_key="player.id")
 

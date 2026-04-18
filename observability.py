@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any
 
 import sentry_sdk
@@ -146,13 +146,22 @@ def log_weight_change(
     )
 
 
-def log_draw_execution(group_id: int, player_id: int, draw_date: date) -> None:
-    """Record the outcome of a daily draw."""
+def log_draw_execution(
+    group_id: int, player_id: int, draw_date: date, draw_timezone: str
+) -> None:
+    """Record the outcome of a daily draw.
+
+    Captures the configured ``draw_timezone`` and the UTC instant of the
+    decision alongside the civil ``draw_date`` so that rollover boundaries
+    remain traceable in audit logs regardless of the deployer's locale.
+    """
     log_audit_event(
         "draw.execution",
         group_telegram_id=group_id,
         player_telegram_id=player_id,
         draw_date=draw_date.isoformat(),
+        draw_timezone=draw_timezone,
+        decided_at=datetime.now(UTC).isoformat(),
     )
 
 

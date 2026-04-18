@@ -11,7 +11,7 @@
 
 Court Jester Selector Bot is a Telegram group bot that picks a "jester of the day" from the group's members using a per-player weighted random draw. It is aimed at friend-group chats that want a playful daily ritual without anyone picking by hand.
 
-Each Telegram group the bot joins becomes a [`Group`](./models.py) row; every user the bot observes in that group is tracked as a [`Player`](./models.py) with an integer `weight`; and every `/crown_the_jester` invocation produces one [`Draw`](./models.py) row. A unique constraint on `(group_id, draw_date)` guarantees at most one jester per group per calendar day. Groups must be approved (by a configurable set of admin Telegram user IDs) before any interactive command is honored.
+Each Telegram group the bot joins becomes a [`Group`](./models.py) row; every user the bot observes in that group is tracked as a [`Player`](./models.py) with an integer `weight`; and every `/crown_the_jester` invocation produces one [`Draw`](./models.py) row. A unique constraint on `(group_id, draw_date)` guarantees at most one jester per group per calendar day, where the day rolls over at midnight in the IANA timezone set by `DRAW_TIMEZONE` (default `UTC`). Groups must be approved (by a configurable set of admin Telegram user IDs) before any interactive command is honored.
 
 The bot is async-first (`python-telegram-bot` 22 + `SQLModel` over `asyncpg`), observes itself via Sentry, and is shipped as a Docker image that runs Alembic migrations on every start.
 
@@ -179,6 +179,12 @@ All templates default to the values in [`config.py`](./config.py) and support th
 | `LEADERBOARD_NOT_ENOUGH_PICKED_PLAYERS_MESSAGE` | — | — |
 | `PERSONAL_STATS_MESSAGE` | `{draw_count}` | `{username}`, `{rank}` |
 | `PERSONAL_STATS_NO_PICKED_PLAYER_MESSAGE` | — | `{username}` |
+
+### Draw timing
+
+| Name | Type | Default | Description |
+|---|---|---|---|
+| `DRAW_TIMEZONE` | IANA tz name | `UTC` | Timezone whose midnight defines the rollover between one `draw_date` and the next. Any name accepted by [`zoneinfo.ZoneInfo`](https://docs.python.org/3/library/zoneinfo.html) works (e.g. `Europe/Paris`, `America/New_York`); invalid names fail fast at startup. The configured zone is also emitted on every `draw.execution` audit record alongside the UTC instant of the decision. |
 
 ### Observability
 

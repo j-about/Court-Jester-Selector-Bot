@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from typing import Annotated, Any
 from urllib.parse import quote
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import Field, SecretStr, computed_field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -71,6 +72,8 @@ class Settings(BaseSettings):
     PLAYERS_PER_PAGE: int = Field(default=5, ge=1)
     MIN_PLAYERS: int = 10
 
+    DRAW_TIMEZONE: str = "UTC"
+
     NON_APPROVED_GROUP_MESSAGE: str = (
         "🏰 Halt! This royal entertainment has not yet been sanctioned! "
         "The Court Jester Selector awaits approval from the kingdom's nobles "
@@ -113,6 +116,17 @@ class Settings(BaseSettings):
         "🃏 Hear this, {username}! You have entertained the court {draw_count} times as Jester, "
         "placing you at position {rank} among all court entertainers!"
     )
+
+    @field_validator("DRAW_TIMEZONE")
+    @classmethod
+    def _validate_draw_timezone(cls, v: str) -> str:
+        try:
+            ZoneInfo(v)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError(
+                f"DRAW_TIMEZONE {v!r} is not a valid IANA timezone name"
+            ) from exc
+        return v
 
     @field_validator("TG_BOT_ADMIN_RIGHTS_CHAT_MEMBER_STATUS", mode="before")
     @classmethod
